@@ -1,0 +1,7 @@
+{
+  "name": "Busted",
+  "description": "A cyber-styled traffic news and alert application with a police-themed aesthetic.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
