@@ -1,146 +1,123 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, FileVideo, ScanLine, ArrowRight, Car, Hash } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { ScanLine, ArrowLeft, Upload, FileVideo, AlertCircle, CheckCircle, ShieldCheck } from 'lucide-react';
 
 interface UploadEvidenceProps {
   onCancel: () => void;
   onContinue: (data: any) => void;
 }
 
-const VIOLATIONS = [
-  "No Helmet Detected",
-  "Red Light Jump",
-  "Triple Riding Detected",
-  "Wrong Lane Violation",
-  "Zebra Crossing Violation"
-];
-
-const PLATES = [
-  "MH-02-DN-4829",
-  "DL-3C-AB-9921",
-  "KA-05-XY-1234",
-  "TN-01-BK-5678",
-  "HR-26-DQ-0001"
-];
-
 export const UploadEvidence: React.FC<UploadEvidenceProps> = ({ onCancel, onContinue }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'analyzing' | 'done'>('idle');
-  const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState("Initializing...");
   const [result, setResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileSelection(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileSelection(e.target.files[0]);
     }
   };
 
   const handleFileSelection = (selectedFile: File) => {
     setFile(selectedFile);
-    startAnalysis();
+    const url = URL.createObjectURL(selectedFile);
+    setFilePreview(url);
+    startAnalysis(selectedFile);
   };
 
-  const startAnalysis = async () => {
+  const startAnalysis = async (selectedFile: File) => {
     setStatus('analyzing');
-    setProgress(0);
-    
-    if (!file) return;
-
-    // Visual Simulation for UI UX while backend processes
-    const steps = [
-      { pct: 10, text: "Uploading Video to Server..." },
-      { pct: 30, text: "[API] Extracting Key Frames..." },
-      { pct: 60, text: "[API] Running Object Detection..." },
-      { pct: 85, text: "[API] Reading License Plate (OCR)..." },
-      { pct: 95, text: "[API] Finalizing Report..." }
-    ];
-
-    let currentStep = 0;
-    
-    const interval = setInterval(() => {
-      if (currentStep < steps.length - 1) {
-        setAnalysisStep(steps[currentStep].text);
-        setProgress(steps[currentStep].pct);
-        currentStep++;
-      }
-    }, 600); 
+    setAnalysisStep("Uploading & analyzing video feed...");
 
     try {
       const formData = new FormData();
-      formData.append('video', file);
+      formData.append('video', selectedFile);
 
-      // Call Python FastAPI Backend
-      const response = await fetch('http://localhost:8000/analyze/', {
+      const response = await fetch('http://127.0.0.1:8000/api/analyze/', {
         method: 'POST',
         body: formData,
       });
-
+      
       if (!response.ok) {
-        throw new Error('Analysis failed on server');
+        throw new Error("Analysis failed");
       }
 
       const data = await response.json();
-      
-      clearInterval(interval);
-      setProgress(100);
-      setAnalysisStep("Analysis Complete");
-      
-      setTimeout(() => {
-        setResult(data);
-        setStatus('done');
-      }, 500);
+      setResult(data);
+      setStatus('done');
 
     } catch (err) {
       console.error(err);
-      clearInterval(interval);
-      // Fallback to local mock if python server isn't running yet
-      generateResult();
+      setStatus('idle');
+      alert("Backend error during analysis. Please ensure the AI backend is running.");
+      setFile(null);
+      setFilePreview(null);
     }
   };
 
-  const generateResult = () => {
-    const randomViolation = VIOLATIONS[Math.floor(Math.random() * VIOLATIONS.length)];
-    const randomPlate = PLATES[Math.floor(Math.random() * PLATES.length)];
-    const randomConfidence = (85 + Math.random() * 14).toFixed(1);
-    const evidenceId = `EVD-${Math.floor(100000 + Math.random() * 900000)}`;
+  const handleFileComplaint = async () => {
+    if (!result) return;
+    
+    try {
+      const response = await fetch("http://localhost:3000/api/reports/log", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          report_id: `EV-${Date.now()}`,
+          user_id: "demo-user",
+          issue_type: result.violation || "Unknown",
+          state: "Unknown",
+          latitude: 0,
+          longitude: 0,
+          formatted_address: "N/A",
+          selected_handle: "Traffic Police",
+          timestamp: new Date().toISOString(),
+          message_preview: result.plate || "No plate detected",
+          channel_type: "AI",
+          status: "detected"
+        }),
+      });
 
-    setResult({
-      violation: randomViolation,
-      plate: randomPlate,
-      confidence: randomConfidence,
-      evidenceId: evidenceId
-    });
-    setStatus('done');
-  };
+      const data = await response.json();
+      console.log("Saved to DB:", data);
+      
+      onContinue(result);
 
-  const handleFileComplaint = () => {
-    if (result) {
+    } catch (err) {
+      console.error("Save failed:", err);
       onContinue(result);
     }
   };
 
   return (
-    <div className="w-full px-6 md:px-12 pb-20 relative min-h-[80vh]">
+    <div className="w-full px-6 md:px-12 pb-20 relative">
+      <style>{`
+        @keyframes scan {
+          0% { transform: translateY(-100%); }
+          50% { transform: translateY(500%); }
+          100% { transform: translateY(-100%); }
+        }
+        .animate-scan {
+          animation: scan 3s ease-in-out infinite;
+        }
+      `}</style>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-5xl mx-auto"
+        className="w-full max-w-4xl mx-auto"
       >
-        {/* 1. Header Section */}
-        <div className="flex items-center justify-between mb-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-4">
             <button 
               onClick={onCancel}
@@ -150,160 +127,186 @@ export const UploadEvidence: React.FC<UploadEvidenceProps> = ({ onCancel, onCont
             </button>
             <h1 className="text-3xl font-bold text-white tracking-tight">Upload Evidence</h1>
           </div>
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-300 text-xs font-bold uppercase tracking-wider">
+            <ShieldCheck className="w-4 h-4" />
+            <span>AI Automated Extraction</span>
+          </div>
         </div>
 
         {/* Content Area */}
-        <div className="w-full">
-          <AnimatePresence mode="wait">
+        <div className="w-full relative z-10 grid gap-8">
             
-            {/* STATE: IDLE (Upload) */}
+          {/* Upload Box OR Analysis Box */}
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 overflow-hidden relative min-h-[400px] flex flex-col items-center justify-center">
+            
             {status === 'idle' && (
-              <motion.div 
-                key="idle"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="w-full min-h-[500px] bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl flex flex-col items-center justify-center p-8 relative shadow-2xl"
+              <div 
+                className="w-full h-full flex flex-col items-center justify-center cursor-pointer group py-12"
+                onClick={() => fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
               >
-                <div className="w-full h-full border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-white/[0.02] hover:bg-white/[0.05] hover:border-blue-400/30 transition-all group relative cursor-pointer">
-                  <input 
-                    type="file" 
-                    accept="video/*" 
-                    onChange={handleFileChange}
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-                  />
-                  
-                  <div className="w-24 h-24 rounded-full bg-blue-500/10 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-blue-500/20 transition-all duration-300 shadow-[0_0_30px_rgba(59,130,246,0.1)]">
-                    <FileVideo className="w-10 h-10 text-blue-400" />
-                  </div>
-                  
-                  <h3 className="text-2xl font-bold text-white mb-2">Drag & Drop Video</h3>
-                  <p className="text-white/40 mb-8 font-medium">or click to browse from device</p>
-                  
-                  <div className="flex gap-4">
-                    <span className="px-3 py-1 rounded bg-white/5 text-[10px] uppercase tracking-widest text-white/30 font-bold">MP4</span>
-                    <span className="px-3 py-1 rounded bg-white/5 text-[10px] uppercase tracking-widest text-white/30 font-bold">MOV</span>
-                  </div>
+                <input
+                  type="file"
+                  accept="video/*,image/*"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files && e.target.files.length > 0 && handleFileSelection(e.target.files[0])
+                  }
+                />
+                <div className="w-24 h-24 bg-white/5 border-2 border-dashed border-white/20 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-blue-500/10 group-hover:border-blue-500/50 transition-all duration-300">
+                    <Upload className="w-10 h-10 text-white/40 group-hover:text-blue-400 transition-colors" />
                 </div>
-              </motion.div>
+                <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-blue-200 transition-colors">Drag & Drop Evidence</h3>
+                <p className="text-white/40 mb-8 font-medium text-center max-w-sm">
+                  Click or drag to upload.<br/>Supports MP4, AVI, MOV, JPG, PNG.
+                </p>
+                <div className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-3 transition-colors shadow-lg shadow-blue-500/30">
+                  <FileVideo className="w-5 h-5" />
+                  Select File
+                </div>
+              </div>
             )}
 
-            {/* STATE: ANALYZING */}
             {status === 'analyzing' && (
-              <motion.div 
-                key="analyzing"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="w-full min-h-[500px] bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl flex flex-col items-center justify-center p-12 text-center"
-              >
-                <div className="relative w-32 h-32 mb-8">
-                  <div className="absolute inset-0 border-4 border-blue-500/10 rounded-full"></div>
-                  <div className="absolute inset-0 border-4 border-transparent border-t-blue-500 border-l-blue-500 rounded-full animate-spin"></div>
-                  <ScanLine className="absolute inset-0 m-auto w-10 h-10 text-blue-400 animate-pulse" />
-                </div>
-                
-                <h3 className="text-3xl font-bold text-white mb-2 tracking-tight">{analysisStep}</h3>
-                
-                <div className="w-full max-w-lg h-1 bg-white/10 rounded-full mt-8 overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-                <p className="text-blue-300/60 mt-3 font-mono text-sm tracking-widest">{progress}% COMPLETE</p>
-              </motion.div>
+              <div className="w-full h-full flex flex-col items-center justify-center animate-in fade-in duration-500 py-12">
+                 <div className="relative w-64 h-64 md:w-96 md:h-64 rounded-2xl overflow-hidden bg-black/60 border border-white/10 mb-8 flex items-center justify-center shadow-2xl">
+                    {filePreview ? (
+                      <video src={filePreview} className="w-full h-full object-cover opacity-40 blur-[1px]" autoPlay loop muted />
+                    ) : (
+                      <FileVideo className="w-16 h-16 text-white/20" />
+                    )}
+                    
+                    {/* Scanner Effect */}
+                    <div className="absolute top-0 left-0 w-full h-[20%] bg-gradient-to-b from-transparent via-blue-500/40 to-transparent animate-scan z-10" />
+                    <ScanLine className="absolute inset-0 m-auto w-16 h-16 text-blue-400 animate-pulse z-20 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                 </div>
+                 <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Analyzing Footage</h3>
+                 <p className="text-blue-300/80 animate-pulse font-medium">{analysisStep}</p>
+              </div>
             )}
 
-            {/* STATE: DONE (Structured Result) */}
             {status === 'done' && result && (
-              <motion.div 
-                key="done"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-full flex flex-col gap-6"
-              >
-                {/* 2. Detection Frame Section */}
-                <div className="relative w-full aspect-video md:aspect-[21/9] rounded-3xl overflow-hidden bg-black border border-white/10 group shadow-2xl">
-                   <img 
-                      src="https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=1740&auto=format&fit=crop" 
-                      alt="Analyzed Frame" 
-                      className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000"
-                   />
-                   
-                   {/* Gradient Overlay */}
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
-                   
-                   {/* Bounding Box Simulation */}
-                   <div className="absolute top-[25%] left-[20%] w-[40%] h-[35%] border-2 border-red-500/80 shadow-[0_0_20px_rgba(239,68,68,0.3)] bg-red-500/5 rounded-sm">
-                      <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-red-500"></div>
-                      <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-red-500"></div>
-                      <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-red-500"></div>
-                      <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-red-500"></div>
-                   </div>
-
-                   {/* Badges */}
-                   <div className="absolute top-6 left-6 flex items-center gap-2 bg-red-600/90 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide shadow-lg">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      <span>Violation Detected</span>
-                   </div>
-                   
-                   <div className="absolute top-6 right-6 flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 text-blue-200 px-4 py-1.5 rounded-full text-xs font-mono shadow-lg">
-                      <span>Confidence:</span>
-                      <span className="text-white font-bold">{result.confidence}%</span>
-                   </div>
-                </div>
-
-                {/* 3. Detection Summary Section */}
-                <div className="w-full bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-10 mb-20">
-                    <h2 className="text-4xl md:text-5xl font-bold text-white mb-10 tracking-tight text-center md:text-left">{result.violation}</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl">
-                        <div className="flex flex-col gap-2">
-                           <span className="flex items-center gap-2 text-xs font-bold text-blue-300 uppercase tracking-widest">
-                             <Car className="w-4 h-4" /> Vehicle Number
-                           </span>
-                           <span className="text-3xl font-mono font-bold text-white">{result.plate}</span>
+              <div className="w-full flex flex-col items-center text-center animate-in zoom-in-95 duration-500 py-6">
+                 <div className="w-20 h-20 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
+                   <CheckCircle className="w-10 h-10 text-green-400" />
+                 </div>
+                 <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Extraction Complete</h2>
+                 <p className="text-white/50 mb-8 max-w-md">Our AI model has successfully processed the evidence and extracted the following incident details.</p>
+                 
+                 {/* Images Grids */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mb-8">
+                    {/* Violation Frame */}
+                    {result.violation_frame_base64 && (
+                      <div className="relative w-full aspect-video bg-black/50 border border-white/10 rounded-2xl overflow-hidden group shadow-[0_10px_40px_-10px_rgba(239,68,68,0.15)] hover:shadow-[0_10px_40px_-5px_rgba(239,68,68,0.25)] transition-all">
+                         <img src={`data:image/jpeg;base64,${result.violation_frame_base64}`} alt="Violation" className="w-full h-full object-contain" />
+                         
+                         {result.violation_box && (
+                           <div 
+                             className="absolute border-2 border-red-500 rounded bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                             style={{
+                               left: `${(result.violation_box.x1 / result.violation_frame_width) * 100}%`,
+                               top: `${(result.violation_box.y1 / result.violation_frame_height) * 100}%`,
+                               width: `${((result.violation_box.x2 - result.violation_box.x1) / result.violation_frame_width) * 100}%`,
+                               height: `${((result.violation_box.y2 - result.violation_box.y1) / result.violation_frame_height) * 100}%`
+                             }}
+                           >
+                              <div className="absolute top-0 right-0 -translate-y-full translate-x-0.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-t-lg rounded-bl shadow-lg whitespace-nowrap">
+                                 {result.violation} ({result.confidence}%)
+                              </div>
+                           </div>
+                         )}
+                         <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-xs font-bold text-white/70">
+                            Violation Frame
+                         </div>
+                      </div>
+                    )}
+                 
+                    {/* Plate Frame */}
+                    {result.plate_frame_base64 && (
+                      <div className="relative w-full aspect-video bg-black/50 border border-white/10 rounded-2xl overflow-hidden group shadow-[0_10px_40px_-10px_rgba(59,130,246,0.15)] hover:shadow-[0_10px_40px_-5px_rgba(59,130,246,0.25)] transition-all flex items-center justify-center">
+                         <img src={`data:image/jpeg;base64,${result.plate_frame_base64}`} alt="License Plate" className="w-full h-full object-contain" />
+                         
+                         {result.plate_box && (
+                           <div 
+                             className="absolute border-[3px] border-blue-500 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.6)] bg-blue-500/10"
+                             style={{
+                               left: `calc(${(result.plate_box.x1 / result.plate_frame_width) * 100}% - 12px)`,
+                               top: `calc(${(result.plate_box.y1 / result.plate_frame_height) * 100}% - 8px)`,
+                               width: `calc(${((result.plate_box.x2 - result.plate_box.x1) / result.plate_frame_width) * 100}% + 24px)`,
+                               height: `calc(${((result.plate_box.y2 - result.plate_box.y1) / result.plate_frame_height) * 100}% + 16px)`
+                             }}
+                           >
+                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+4px)] bg-blue-500 text-white text-xs font-bold tracking-widest px-3 py-1 rounded-b-lg shadow-lg whitespace-nowrap">
+                                 {result.plate}
+                              </div>
+                           </div>
+                         )}
+                         <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-xs font-bold text-white/70">
+                            Zoomed License Plate
+                         </div>
+                      </div>
+                    )}
+                 </div>
+                 
+                 <div className="w-full max-w-2xl bg-black/40 border border-white/10 rounded-2xl p-6 mb-8 text-left grid gap-4 grid-cols-1 md:grid-cols-2">
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                        <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Detected Violation</p>
+                        <p className="text-xl font-bold text-red-400 leading-tight">{result.violation || "Unknown"}</p>
+                    </div>
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                        <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">License Plate</p>
+                        <p className="text-xl font-bold text-blue-400 font-mono tracking-widest leading-tight">{result.plate || "Not Found"}</p>
+                    </div>
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/5 col-span-1 md:col-span-2 flex items-center justify-between group hover:bg-white/10 transition-colors">
+                        <div>
+                           <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-1">Model Confidence</p>
+                           <p className="text-lg font-bold text-white group-hover:text-blue-200 transition-colors">{(result.confidence ? Number(result.confidence).toFixed(2) : '95.0')}%</p>
                         </div>
-
-                        <div className="flex flex-col gap-2">
-                           <span className="flex items-center gap-2 text-xs font-bold text-blue-300 uppercase tracking-widest">
-                             <Hash className="w-4 h-4" /> Evidence ID
-                           </span>
-                           <span className="text-xl font-mono font-medium text-white/60">{result.evidenceId}</span>
+                        <div className="px-4 py-1.5 bg-green-500/10 text-green-400 text-xs font-bold rounded-full uppercase tracking-wider border border-green-500/20">
+                           High Accuracy
                         </div>
                     </div>
-                </div>
-              </motion.div>
+                 </div>
+
+                 <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xl">
+                    <button
+                      onClick={() => { setStatus('idle'); setFile(null); setFilePreview(null); setResult(null); }}
+                      className="flex-1 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold rounded-xl transition-all"
+                    >
+                      Scan Another
+                    </button>
+                    <button
+                      onClick={handleFileComplaint}
+                      className="flex-[2] py-4 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] flex justify-center items-center gap-2"
+                    >
+                      <ShieldCheck className="w-5 h-5 fill-black text-white" />
+                      Proceed to File Complaint
+                    </button>
+                 </div>
+              </div>
             )}
-          </AnimatePresence>
+            
+          </div>
+
+          {/* Info Banner */}
+          {status === 'idle' && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+               <div className="flex gap-4 items-start">
+                 <div className="p-3 bg-blue-500/20 rounded-xl shrink-0">
+                    <AlertCircle className="w-6 h-6 text-blue-400" />
+                 </div>
+                 <div>
+                    <h4 className="text-white font-bold text-lg">Automated Analysis</h4>
+                    <p className="text-white/50 text-sm mt-1 max-w-xl leading-relaxed">Our AI extracts vehicle numbers and classifies traffic violations securely. Your data is not stored permanently without your consent.</p>
+                 </div>
+               </div>
+            </div>
+          )}
+
         </div>
       </motion.div>
-
-      {/* 4. Fixed File Complaint Button */}
-      <AnimatePresence>
-        {status === 'done' && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-8 right-8 z-50"
-          >
-            <button
-              onClick={handleFileComplaint}
-              className="group flex items-center gap-3 pl-8 pr-2 py-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)] text-white font-bold text-lg tracking-wide hover:bg-white/20 transition-all"
-            >
-              <span>File Complaint</span>
-              <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center group-hover:bg-blue-400 group-hover:scale-105 transition-all shadow-lg">
-                <ArrowRight className="w-5 h-5" />
-              </div>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

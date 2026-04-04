@@ -182,7 +182,37 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess, onSwitc
 
     // Format phone with +91 if present
     const formattedPhone = phone ? `+91${phone}` : '';
- catch (err: any) {
+    
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          phone: formattedPhone,
+          username,
+          district,
+          state: stateName,
+          pincode
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed');
+      }
+
+      if (data.otpRequired) {
+        setShowOtpInput(true);
+        setError("Please check your email for the verification code.");
+        setIsLoading(false);
+      } else {
+        onSignupSuccess({ name, email, isGuest: false });
+      }
+    } catch (err: any) {
       console.error('Signup error:', err);
       setError(getFriendlyError(err.message || 'Failed to create account. Please try again.'));
       setIsLoading(false);

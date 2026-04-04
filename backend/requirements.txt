@@ -2,4 +2,7 @@ fastapi
 uvicorn
 httpx
 async-lru
+ultralytics
+easyocr
+opencv-python-headless
 python-multipart

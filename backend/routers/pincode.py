@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Path
 from fastapi.responses import JSONResponse
-from backend.services.pincode_service import get_pincode_info
+from services.pincode_service import get_pincode_info
 
 router = APIRouter(
     prefix="/api/pincode",
