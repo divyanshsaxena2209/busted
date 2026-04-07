@@ -280,76 +280,82 @@ EVIDENCE ID: ${formData.evidenceId}`;
                </div>
                <div className="flex flex-col gap-4">
                  {/* Violation Frame */}
-                 {data?.violation_frame_base64 ? (
-                   <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black/50 group cursor-pointer border border-white/10 shadow-lg">
-                      <img 
-                        src={`data:image/jpeg;base64,${data.violation_frame_base64}`} 
-                        alt="Violation Evidence" 
-                        className="w-full h-full object-contain opacity-80"
-                      />
-                      {data.violation_box && (
-                           <div 
-                             className="absolute border-2 border-red-500 rounded bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                             style={{
-                               left: `${(data.violation_box.x1 / data.violation_frame_width) * 100}%`,
-                               top: `${(data.violation_box.y1 / data.violation_frame_height) * 100}%`,
-                               width: `${((data.violation_box.x2 - data.violation_box.x1) / data.violation_frame_width) * 100}%`,
-                               height: `${((data.violation_box.y2 - data.violation_box.y1) / data.violation_frame_height) * 100}%`
-                             }}
-                           >
-                              <div className="absolute top-0 right-0 -translate-y-full translate-x-0.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-t-lg rounded-bl shadow-lg whitespace-nowrap">
-                                 {data.violation} ({data.confidence}%)
-                              </div>
-                           </div>
-                       )}
-                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <span className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold">
-                           <Edit3 className="w-4 h-4" /> Change Image
-                         </span>
-                       </div>
+                 {data?.violation_frame ? (
+                   <div className="w-full flex items-center justify-center">
+                     <div className="relative max-w-full inline-block rounded-xl overflow-hidden bg-black/50 group cursor-pointer border border-white/10 shadow-lg">
+                        <img 
+                          src={`data:image/jpeg;base64,${data.violation_frame}`} 
+                          alt="Violation Evidence" 
+                          className="block max-w-full max-h-[65vh] w-auto h-auto opacity-80 group-hover:opacity-60 transition-opacity"
+                        />
+                        {data.violation_box && (
+                             <div 
+                               className="absolute border-2 border-red-500 rounded bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                               style={{
+                                 left: `${(data.violation_box.x1 / data.violation_frame_width) * 100}%`,
+                                 top: `${(data.violation_box.y1 / data.violation_frame_height) * 100}%`,
+                                 width: `${((data.violation_box.x2 - data.violation_box.x1) / data.violation_frame_width) * 100}%`,
+                                 height: `${((data.violation_box.y2 - data.violation_box.y1) / data.violation_frame_height) * 100}%`
+                               }}
+                             >
+                                <div className="absolute top-0 right-0 -translate-y-full translate-x-0.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-t-lg rounded-bl shadow-lg whitespace-nowrap">
+                                   {data.violation} ({data.confidence}%)
+                                </div>
+                             </div>
+                         )}
+                         <div className="absolute inset-0 flex items-center justify-center bg-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                           <span className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold shadow-xl">
+                             <Edit3 className="w-4 h-4" /> Change Image
+                           </span>
+                         </div>
+                     </div>
                    </div>
                  ) : (
-                   <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black group cursor-pointer border border-white/10 shadow-lg">
-                      <img 
-                        src="https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=1740&auto=format&fit=crop" 
-                        alt="Evidence Placeholder" 
-                        className="w-full h-full object-cover opacity-80"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <span className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold">
-                           <Edit3 className="w-4 h-4" /> Change Image
-                         </span>
-                      </div>
+                   <div className="w-full flex items-center justify-center">
+                     <div className="relative max-w-full inline-block rounded-xl overflow-hidden bg-black group cursor-pointer border border-white/10 shadow-lg">
+                        <img 
+                          src="https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=1740&auto=format&fit=crop" 
+                          alt="Evidence Placeholder" 
+                          className="block max-w-full max-h-[65vh] w-auto h-auto object-cover opacity-80 group-hover:opacity-60 transition-opacity"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                           <span className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold shadow-xl">
+                             <Edit3 className="w-4 h-4" /> Change Image
+                           </span>
+                        </div>
+                     </div>
                    </div>
                  )}
 
                  {/* Plate Frame */}
-                 {data?.plate_frame_base64 && (
-                   <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black/50 group border border-white/10 shadow-lg flex items-center justify-center">
-                      <img 
-                        src={`data:image/jpeg;base64,${data.plate_frame_base64}`} 
-                        alt="License Plate Evidence" 
-                        className="w-full h-full object-contain opacity-90"
-                      />
-                      {data.plate_box && (
-                           <div 
-                             className="absolute border-[3px] border-blue-500 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.6)] bg-blue-500/10"
-                             style={{
-                               left: `calc(${(data.plate_box.x1 / data.plate_frame_width) * 100}% - 12px)`,
-                               top: `calc(${(data.plate_box.y1 / data.plate_frame_height) * 100}% - 8px)`,
-                               width: `calc(${((data.plate_box.x2 - data.plate_box.x1) / data.plate_frame_width) * 100}% + 24px)`,
-                               height: `calc(${((data.plate_box.y2 - data.plate_box.y1) / data.plate_frame_height) * 100}% + 16px)`
-                             }}
-                           >
-                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+4px)] bg-blue-500 text-white text-[10px] font-bold tracking-widest px-3 py-1 rounded-b-lg shadow-lg whitespace-nowrap">
-                                 {data.plate}
-                              </div>
-                           </div>
-                       )}
-                       {/* Badge */}
-                       <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 backdrop-blur text-white/70 text-[10px] font-mono border border-white/10 rounded z-10 hidden md:block">
-                          ID: {formData.evidenceId}
-                       </div>
+                 {data?.plate_frame && (
+                   <div className="w-full flex items-center justify-center">
+                     <div className="relative max-w-full inline-block rounded-xl overflow-hidden bg-black/50 group border border-white/10 shadow-lg">
+                        <img 
+                          src={`data:image/jpeg;base64,${data.plate_frame}`} 
+                          alt="License Plate Evidence" 
+                          className="block max-w-full max-h-[65vh] w-auto h-auto opacity-90"
+                        />
+                        {data.plate_box && (
+                             <div 
+                               className="absolute border-[3px] border-blue-500 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.6)] bg-blue-500/10"
+                               style={{
+                                 left: `calc(${(data.plate_box.x1 / data.plate_frame_width) * 100}% - 12px)`,
+                                 top: `calc(${(data.plate_box.y1 / data.plate_frame_height) * 100}% - 8px)`,
+                                 width: `calc(${((data.plate_box.x2 - data.plate_box.x1) / data.plate_frame_width) * 100}% + 24px)`,
+                                 height: `calc(${((data.plate_box.y2 - data.plate_box.y1) / data.plate_frame_height) * 100}% + 16px)`
+                               }}
+                             >
+                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+4px)] bg-blue-500 text-white text-[10px] font-bold tracking-widest px-3 py-1 rounded-b-lg shadow-lg whitespace-nowrap">
+                                   {data.plate}
+                                </div>
+                             </div>
+                         )}
+                         {/* Badge */}
+                         <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 backdrop-blur text-white/70 text-[10px] font-mono border border-white/10 rounded z-10 hidden md:block">
+                            ID: {formData.evidenceId}
+                         </div>
+                     </div>
                    </div>
                  )}
                </div>

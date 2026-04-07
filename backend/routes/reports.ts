@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { supabase } from '../db/supabaseClient.js';
+import { supabase } from '../db/supabaseClient.ts';
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.post('/log', async (req, res) => {
         longitude: body.longitude,
         formatted_address: body.formatted_address,
         selected_handle: body.selected_handle,
-        timestamp: body.timestamp,
+        created_at: body.timestamp,
         message_preview: body.message_preview,
         channel_type: body.channel_type,
         status: body.status
@@ -51,7 +51,7 @@ router.get('/history/:userId', async (req, res) => {
       .from('reports')
       .select('*')
       .eq('user_id', userId)
-      .order('timestamp', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 

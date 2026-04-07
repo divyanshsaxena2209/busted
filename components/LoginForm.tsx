@@ -79,11 +79,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess, onSwitchTo
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+        <form onSubmit={handleSubmit} method="POST" action="#" className="space-y-6 relative z-10">
           <div className="space-y-2">
             <label className="text-xs font-semibold text-blue-200 uppercase tracking-wider ml-1">Email, Username, or Phone</label>
             <input 
               type="text" 
+              name="username"
+              autoComplete="username"
               required
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
@@ -97,6 +99,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess, onSwitchTo
             <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"}
+                name="password"
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

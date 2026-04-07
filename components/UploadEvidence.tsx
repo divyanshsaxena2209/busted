@@ -41,7 +41,8 @@ export const UploadEvidence: React.FC<UploadEvidenceProps> = ({ onCancel, onCont
       const formData = new FormData();
       formData.append('video', selectedFile);
 
-      const response = await fetch('http://127.0.0.1:8000/api/analyze/', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:10000';
+      const response = await fetch(`${apiUrl}/api/analyze/`, {
         method: 'POST',
         body: formData,
       });
@@ -198,54 +199,58 @@ export const UploadEvidence: React.FC<UploadEvidenceProps> = ({ onCancel, onCont
                  {/* Images Grids */}
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mb-8">
                     {/* Violation Frame */}
-                    {result.violation_frame_base64 && (
-                      <div className="relative w-full aspect-video bg-black/50 border border-white/10 rounded-2xl overflow-hidden group shadow-[0_10px_40px_-10px_rgba(239,68,68,0.15)] hover:shadow-[0_10px_40px_-5px_rgba(239,68,68,0.25)] transition-all">
-                         <img src={`data:image/jpeg;base64,${result.violation_frame_base64}`} alt="Violation" className="w-full h-full object-contain" />
-                         
-                         {result.violation_box && (
-                           <div 
-                             className="absolute border-2 border-red-500 rounded bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                             style={{
-                               left: `${(result.violation_box.x1 / result.violation_frame_width) * 100}%`,
-                               top: `${(result.violation_box.y1 / result.violation_frame_height) * 100}%`,
-                               width: `${((result.violation_box.x2 - result.violation_box.x1) / result.violation_frame_width) * 100}%`,
-                               height: `${((result.violation_box.y2 - result.violation_box.y1) / result.violation_frame_height) * 100}%`
-                             }}
-                           >
-                              <div className="absolute top-0 right-0 -translate-y-full translate-x-0.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-t-lg rounded-bl shadow-lg whitespace-nowrap">
-                                 {result.violation} ({result.confidence}%)
-                              </div>
+                    {result.violation_frame && (
+                      <div className="w-full flex items-center justify-center">
+                        <div className="relative max-w-full inline-block bg-black/50 border border-white/10 rounded-2xl overflow-hidden group shadow-[0_10px_40px_-10px_rgba(239,68,68,0.15)] hover:shadow-[0_10px_40px_-5px_rgba(239,68,68,0.25)] transition-all">
+                           <img src={`data:image/jpeg;base64,${result.violation_frame}`} alt="Violation" className="block max-w-full max-h-[65vh] w-auto h-auto" />
+                           
+                           {result.violation_box && (
+                             <div 
+                               className="absolute border-2 border-red-500 rounded bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                               style={{
+                                 left: `${(result.violation_box.x1 / result.violation_frame_width) * 100}%`,
+                                 top: `${(result.violation_box.y1 / result.violation_frame_height) * 100}%`,
+                                 width: `${((result.violation_box.x2 - result.violation_box.x1) / result.violation_frame_width) * 100}%`,
+                                 height: `${((result.violation_box.y2 - result.violation_box.y1) / result.violation_frame_height) * 100}%`
+                               }}
+                             >
+                                <div className="absolute top-0 right-0 -translate-y-full translate-x-0.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-t-lg rounded-bl shadow-lg whitespace-nowrap">
+                                   {result.violation} ({result.confidence}%)
+                                </div>
+                             </div>
+                           )}
+                           <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-xs font-bold text-white/70">
+                              Violation Frame
                            </div>
-                         )}
-                         <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-xs font-bold text-white/70">
-                            Violation Frame
-                         </div>
+                        </div>
                       </div>
                     )}
                  
                     {/* Plate Frame */}
-                    {result.plate_frame_base64 && (
-                      <div className="relative w-full aspect-video bg-black/50 border border-white/10 rounded-2xl overflow-hidden group shadow-[0_10px_40px_-10px_rgba(59,130,246,0.15)] hover:shadow-[0_10px_40px_-5px_rgba(59,130,246,0.25)] transition-all flex items-center justify-center">
-                         <img src={`data:image/jpeg;base64,${result.plate_frame_base64}`} alt="License Plate" className="w-full h-full object-contain" />
-                         
-                         {result.plate_box && (
-                           <div 
-                             className="absolute border-[3px] border-blue-500 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.6)] bg-blue-500/10"
-                             style={{
-                               left: `calc(${(result.plate_box.x1 / result.plate_frame_width) * 100}% - 12px)`,
-                               top: `calc(${(result.plate_box.y1 / result.plate_frame_height) * 100}% - 8px)`,
-                               width: `calc(${((result.plate_box.x2 - result.plate_box.x1) / result.plate_frame_width) * 100}% + 24px)`,
-                               height: `calc(${((result.plate_box.y2 - result.plate_box.y1) / result.plate_frame_height) * 100}% + 16px)`
-                             }}
-                           >
-                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+4px)] bg-blue-500 text-white text-xs font-bold tracking-widest px-3 py-1 rounded-b-lg shadow-lg whitespace-nowrap">
-                                 {result.plate}
-                              </div>
+                    {result.plate_frame && (
+                      <div className="w-full flex items-center justify-center">
+                        <div className="relative max-w-full inline-block bg-black/50 border border-white/10 rounded-2xl overflow-hidden group shadow-[0_10px_40px_-10px_rgba(59,130,246,0.15)] hover:shadow-[0_10px_40px_-5px_rgba(59,130,246,0.25)] transition-all">
+                           <img src={`data:image/jpeg;base64,${result.plate_frame}`} alt="License Plate" className="block max-w-full max-h-[65vh] w-auto h-auto" />
+                           
+                           {result.plate_box && (
+                             <div 
+                               className="absolute border-[3px] border-blue-500 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.6)] bg-blue-500/10"
+                               style={{
+                                 left: `calc(${(result.plate_box.x1 / result.plate_frame_width) * 100}% - 12px)`,
+                                 top: `calc(${(result.plate_box.y1 / result.plate_frame_height) * 100}% - 8px)`,
+                                 width: `calc(${((result.plate_box.x2 - result.plate_box.x1) / result.plate_frame_width) * 100}% + 24px)`,
+                                 height: `calc(${((result.plate_box.y2 - result.plate_box.y1) / result.plate_frame_height) * 100}% + 16px)`
+                               }}
+                             >
+                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+4px)] bg-blue-500 text-white text-xs font-bold tracking-widest px-3 py-1 rounded-b-lg shadow-lg whitespace-nowrap">
+                                   {result.plate}
+                                </div>
+                             </div>
+                           )}
+                           <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-xs font-bold text-white/70">
+                              Zoomed License Plate
                            </div>
-                         )}
-                         <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-xs font-bold text-white/70">
-                            Zoomed License Plate
-                         </div>
+                        </div>
                       </div>
                     )}
                  </div>

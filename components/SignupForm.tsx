@@ -291,7 +291,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess, onSwitc
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} method="POST" action="#" className="space-y-4">
           {showOtpInput ? (
             <div className="space-y-2">
               <label className="text-xs font-semibold text-blue-200 uppercase tracking-wider ml-1">One-Time Password</label>
@@ -334,6 +334,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess, onSwitc
                   <label className="text-xs font-semibold text-blue-200 uppercase tracking-wider ml-1">Username</label>
                   <input
                     type="text"
+                    name="username"
+                    autoComplete="username"
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -347,6 +349,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess, onSwitc
                 <label className="text-xs font-semibold text-blue-200 uppercase tracking-wider ml-1">Email Address</label>
                 <input
                   type="email"
+                  name="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
@@ -415,6 +419,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess, onSwitc
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
+                      name="password"
+                      autoComplete="new-password"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -436,6 +442,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess, onSwitc
                   <div className="relative">
                     <input
                       type={showConfirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      autoComplete="new-password"
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}

@@ -22,9 +22,60 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewState>('home');
-  const [user, setUser] = useState<User | null>(null);
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+    // Read from URL directly so normal refreshes stay on the same page
+    const currentParams = new URLSearchParams(window.location.search);
+    const viewParam = currentParams.get('view') as ViewState;
+    // Default to 'home' if no specific view is requested in the URL
+    return viewParam || 'home';
+  });
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('busted_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [evidenceData, setEvidenceData] = useState<any>(null);
+  
+  useEffect(() => {
+    // Keep URL in sync with view for browser back button support
+    const currentParams = new URLSearchParams(window.location.search);
+    if (currentParams.get('view') !== currentView) {
+      // If we are navigating back to home, clean the URL
+      if (currentView === 'home') {
+        window.history.pushState({ view: currentView }, '', '/');
+      } else {
+        window.history.pushState({ view: currentView }, '', `?view=${currentView}`);
+      }
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    // Listen for browser back/forward buttons
+    const handlePopState = (event: PopStateEvent) => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const view = currentParams.get('view') as ViewState | null;
+      if (view) {
+         setCurrentView(view);
+      } else {
+         setCurrentView('home');
+      }
+    };
+    
+    // Set initial state for history if missing
+    if (!window.location.search) {
+       window.history.replaceState({ view: currentView }, '', `?view=${currentView}`);
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('busted_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('busted_user');
+    }
+  }, [user]);
   
   // 1. Activity State
   const [activity, setActivity] = useState<ActivityItem[]>([
@@ -130,48 +181,61 @@ export default function App() {
   };
 
   // 2. Separate Data for Traffic News
-  const TRAFFIC_NEWS = [
+  const [trafficNews, setTrafficNews] = useState<any[]>([
     { 
-      id: 1,
-      title: 'New AI Speed Cameras Operational on Highway 44', 
-      meta: 'Traffic Bureau • 2 hours ago',
-      link: 'https://traffic.delhipolice.gov.in/',
+      id: 'loading',
+      title: 'Fetching latest local alerts...', 
+      meta: 'System • Just now',
+      link: '#',
       isUrgent: false
-    },
-    { 
-      id: 2,
-      title: 'Fog Alert: Visibility Below 50m on Yamuna Expressway', 
-      meta: 'Safety Alert • 30 mins ago',
-      link: 'https://traffic.delhipolice.gov.in/',
-      isUrgent: true
-    },
-    { 
-      id: 3,
-      title: 'Checkpoints Established at Sector 18 Noida', 
-      meta: 'Noida Police • 5 hours ago',
-      link: 'https://traffic.delhipolice.gov.in/',
-      isUrgent: false
-    },
-    { 
-      id: 4,
-      title: 'Delhi Traffic Diversion Due to Marathon Event', 
-      meta: 'Advisory • 1 day ago',
-      link: 'https://traffic.delhipolice.gov.in/',
-      isUrgent: false
-    },
-  ];
+    }
+  ]);
+
+  useEffect(() => {
+    // Only fetch when on dashboard to prevent unnecessary API calls
+    if (currentView !== 'dashboard') return;
+
+    const fetchDashboardNews = async () => {
+      try {
+        const endpoint = (user && !user.isGuest && user.id) ? `/api/news/local?userId=${user.id}` : '/api/news';
+        const res = await fetch(endpoint, { cache: 'no-store' });
+        if (!res.ok) throw new Error('API failed');
+        const data = await res.json();
+        
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          const mapped = data.items.slice(0, 4).map((item: any, idx: number) => ({
+            id: `news-${idx}`,
+            title: item.title,
+            meta: `${item.source} • ${item.timeAgo}`,
+            link: item.url !== '#' ? item.url : undefined,
+            isUrgent: item.category === 'accident' || item.category === 'traffic' || item.category === 'road safety'
+          }));
+          setTrafficNews(mapped);
+        } else {
+          setTrafficNews([{ 
+            id: 'empty', title: 'No recent updates in your area.', meta: 'System • Updates paused', link: '#', isUrgent: false 
+          }]);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard news:', err);
+        setTrafficNews([{ 
+          id: 'error', title: 'Unable to connect to news provider.', meta: 'System Error', link: '#', isUrgent: true 
+        }]);
+      }
+    };
+
+    fetchDashboardNews();
+  }, [user, currentView]);
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col font-sans text-white">
       {/* Background Switching: Original Background for all views */}
       <Background />
       
-      {/* Scrolling Window - Hide on Dashboard and internal views for cleaner SaaS look */}
-      {currentView === 'home' || currentView === 'login' || currentView === 'signup' ? (
-        <div className="relative z-20 w-full shadow-lg bg-black/20">
-          <NewsTicker />
-        </div>
-      ) : null}
+      {/* Scrolling Window - Global Visibility */}
+      <div className="relative z-20 w-full shadow-lg bg-black/20">
+        <NewsTicker />
+      </div>
       
       <main className="relative z-10 flex-grow flex flex-col items-center w-full px-4 md:px-8 py-6">
         
@@ -384,7 +448,7 @@ export default function App() {
                           </div>
                           
                           <div className="flex flex-col w-full gap-4">
-                            {TRAFFIC_NEWS.map((item) => (
+                            {trafficNews.map((item) => (
                                 <a 
                                   key={item.id} 
                                   href={item.link} 
