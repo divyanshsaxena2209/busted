@@ -14,6 +14,7 @@ if os.path.exists(dotenv_path):
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import pincode, analysis
@@ -24,6 +25,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS configuration to allow frontend access
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -33,15 +35,18 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Routers
+# ✅ FIXED: Routers
+# We remove the prefix="/api" here because your analysis router 
+# already defines its own prefix as "/analyze". 
+# This ensures the endpoint is available at /analyze/ to match your frontend.
 app.include_router(pincode.router)
-app.include_router(analysis.router, prefix="/api")
+app.include_router(analysis.router) 
 
 @app.get("/")
 async def root():

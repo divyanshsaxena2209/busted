@@ -14,10 +14,10 @@ async def analyze_video(video: UploadFile = File(...)):
     Proxy lightweight backend route that forwards the video directly to the standalone GPU-bound AI service.
     """
     # Fetch decoupled AI inference service URL from env, default properly
-    ai_url = os.getenv("AI_API_URL", "http://localhost:8213")
-    endpoint = f"{ai_url}/analyze"
+    ai_url = os.getenv("AI_API_URL", "http://127.0.0.1:8001")
+    endpoint = f"{ai_url}/analyze/"
     
-    logger.info(f"Proxying video analysis to AI service at {endpoint}")
+    logger.info(f"Proxying video analysis to ACTUAL AI service at {endpoint}")
     
     try:
         async with httpx.AsyncClient() as client:
@@ -26,7 +26,7 @@ async def analyze_video(video: UploadFile = File(...)):
             files = {'video': (video.filename, content, video.content_type)}
             
             # Send file via multi-part POST
-            response = await client.post(endpoint, files=files, timeout=300.0)
+            response = await client.post(endpoint, files=files, timeout=300.0, follow_redirects=True)
             
             # Surface proxy errors correctly
             if response.status_code != 200:
