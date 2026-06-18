@@ -1,4 +1,5 @@
 import { STATE_HANDLES_DB, StateHandle } from '../data/state_handles_db';
+import { getCMOHandleByState } from '../src/utils/policeHandles';
 
 interface ComplaintData {
   vehicleNumber: string;
@@ -59,6 +60,9 @@ export const getOfficialHandle = (state: string, city?: string): StateHandle | n
 };
 
 export const generateXMessage = (data: ComplaintData, handle: string): string => {
+  const cmoTag = getCMOHandleByState(data.state);
+  const mentions = [`@${handle}`, cmoTag].filter(Boolean).join(' ');
+
   const baseMessage = `Traffic Violation Report
 
 Vehicle: ${data.vehicleNumber}
@@ -68,7 +72,7 @@ Time: ${data.date} approx ${data.time}
 
 Requesting necessary action. Evidence attached.
 
-@${handle}`;
+${mentions}`;
 
   const hashtags = `\n#TrafficViolation #RoadSafety`;
   
@@ -78,17 +82,9 @@ Requesting necessary action. Evidence attached.
   // Truncation Logic
   if (finalMessage.length <= 280) return finalMessage;
 
-  // Step 1: Remove additional notes (description is not in base template, so this step is implicitly done by not including it in baseMessage unless it was part of location/notes)
-  // The prompt says "Remove additional notes". If notes were added, remove them. 
-  // In my baseMessage, I didn't include notes. Let's assume 'Location' might be long.
+  // Step 1: Remove additional notes
   
   // Step 2: Shorten location string
-  // We can try to truncate location to fit.
-  // Calculate available space: 280 - (baseMessage without location + hashtags)
-  // But baseMessage includes location.
-  
-  // Let's re-construct to handle truncation dynamically.
-  
   const templateStart = `Traffic Violation Report
 
 Vehicle: ${data.vehicleNumber}
@@ -100,7 +96,7 @@ Time: ${data.date} approx ${data.time}
 
 Requesting necessary action. Evidence attached.
 
-@${handle}`;
+${mentions}`;
 
   const fullLocation = data.location;
   
@@ -109,12 +105,7 @@ Requesting necessary action. Evidence attached.
     return templateStart + fullLocation + templateEnd + hashtags;
   }
 
-  // Step 3: Remove hashtags (The prompt says Step 3, but Step 2 is shorten location. Let's try shortening location first as per prompt)
-  // Actually, removing hashtags is Step 3. So we should try to shorten location first.
-  // But how much to shorten?
-  // Let's try to keep hashtags if possible, but if location is huge, we must truncate it.
-  
-  // Let's try to truncate location to fit WITH hashtags first.
+  // Step 3: Remove hashtags
   let availableForLocation = 280 - (templateStart.length + templateEnd.length + hashtags.length);
   
   if (availableForLocation > 10) { // If we have at least 10 chars for location
@@ -131,7 +122,7 @@ Requesting necessary action. Evidence attached.
     return templateStart + truncatedLocation + templateEnd; // No hashtags
   }
   
-  // If still too long, we are in trouble, but we return what we can (Step 4: Trim trailing spaces is implicit)
+  // If still too long, we return what we can
   return (templateStart + fullLocation + templateEnd).substring(0, 280);
 };
 
@@ -172,7 +163,9 @@ export const generateCivicMessage = (data: CivicIssueData, handle: string): stri
       msg += `\nLocation Map: ${mapsLink}`;
     }
     
-    msg += `\n\n@${handle}`;
+    const cmoTag = getCMOHandleByState(data.state);
+    const mentions = [`@${handle}`, cmoTag].filter(Boolean).join(' ');
+    msg += `\n\n${mentions}`;
     
     if (includeHashtags) {
       msg += `\n\n#CivicIssue #RoadSafety`;
@@ -238,4 +231,66 @@ export const logComplaintAction = async (entry: LogEntry) => {
     logs.push(entry);
     localStorage.setItem('complaint_logs', JSON.stringify(logs));
   }
+};
+
+export interface EmailComplaintData {
+  violationType: string;
+  vehicleNumber: string;
+  location: string;
+  date: string;
+  time: string;
+  state: string;
+  userEmail: string;
+  userName?: string;
+  userMobile?: string;
+  recipientEmail: string;
+  ccEmails?: string[];
+}
+
+export const generateFormalComplaintEmail = (data: EmailComplaintData) => {
+  const subject = `Traffic Violation Report Submitted via Busted AI`;
+  
+  const vehicleLine = data.vehicleNumber ? data.vehicleNumber : 'Vehicle unidentified';
+  const locationLine = data.location ? `* Location: ${data.location}` : '';
+  
+  let body = `Respected Sir/Madam,
+
+I would like to report a potential traffic violation detected through the Busted AI-assisted traffic monitoring platform for your review and necessary action.
+
+Violation Details:
+
+* Violation Type: ${data.violationType}
+* Vehicle Number: ${vehicleLine}
+`;
+
+  if (locationLine) {
+    body += `${locationLine}\n`;
+  }
+  
+  body += `* Date & Time: ${data.date} ${data.time}
+
+Complainant Information:
+* Name: ${data.userName || 'Not provided'}
+* Mobile: ${data.userMobile || 'Not provided'}
+* Email: ${data.userEmail}
+
+The attached evidence was generated through AI-assisted traffic analysis and is being submitted in the interest of public road safety and civic awareness.
+
+Kindly review the matter and take appropriate action if deemed necessary.
+
+Thank you.
+
+Regards,
+Busted AI Platform`;
+
+  // Do not CC the reporter. Only CC official contacts.
+  const ccEmailsEnc = data.ccEmails && data.ccEmails.length > 0 ? encodeURIComponent(data.ccEmails.join(',')) : '';
+
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${data.recipientEmail}&cc=${ccEmailsEnc}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  
+  return gmailUrl;
+};
+
+export const openEmailClient = (url: string) => {
+  window.open(url, '_blank');
 };

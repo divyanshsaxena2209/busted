@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, ExternalLink, ShieldCheck, Check, Edit3, Trash2, Twitter, AlertCircle } from 'lucide-react';
-import { getOfficialHandle, logComplaintAction, generateXMessage } from '../services/complaintService';
+import { ArrowLeft, Copy, ExternalLink, ShieldCheck, Check, Edit3, Trash2, Twitter, AlertCircle, Download, Mail } from 'lucide-react';
+import { getOfficialHandle, logComplaintAction, generateXMessage, generateFormalComplaintEmail, openEmailClient, EmailComplaintData } from '../services/complaintService';
+import { formatComplaintForX, getPoliceHandleByState, ComplaintXData, getComplaintEmailContacts } from '../src/utils/policeHandles';
 
 interface ComplaintPreviewProps {
   data: any;
@@ -97,64 +98,103 @@ EVIDENCE ID: ${formData.evidenceId}`;
       return;
     }
 
-    // 2. Fetch State Record
-    const handleRecord = getOfficialHandle(formData.state, formData.city);
+    // 2. Fetch Police Handle & Generate Structured X Message
+    const policeTag = getPoliceHandleByState(formData.state);
 
-    if (!handleRecord) {
-      setError("Official X handle not configured for this state/city.");
-      return;
-    }
+    const formattedDate = new Date(formData.date).toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric'
+    });
 
-    // 3. Generate Structured X Message
-    // Format:
-    // Traffic Violation Report
-    // Vehicle: {vehicle_number}
-    // Violation: {violation_type}
-    // Location: {location_text}
-    // Time: {date} approx {time}
-    // Requesting necessary action. Evidence attached.
-    // @{official_handle}
-    // #TrafficViolation #RoadSafety
-
-    const messageData = {
-      vehicleNumber: formData.vehicleNumber,
+    const messageData: ComplaintXData = {
       violationType: formData.violationType,
-      location: `${formData.address}, ${formData.city}, ${formData.state}`,
-      date: formData.date,
-      time: formData.time,
-      state: formData.state,
+      plateNumber: formData.vehicleNumber,
+      district: formData.address,
       city: formData.city,
-      description: formData.description
+      state: formData.state,
+      timestamp: formattedDate
     };
 
-    // Generate message with truncation logic
-    // Note: generateXMessage handles the format and truncation (Notes removal, Location shortening, Hashtags removal)
-    // We pass the handle string (without @, as the function adds it)
-    const finalMessage = generateXMessage(messageData, handleRecord.handle);
+    const finalMessage = formatComplaintForX(messageData);
 
-    // 4. Log Action
+    // 3. Log Action
     const logEntry = {
       report_id: `RPT-${Date.now()}`,
       user_id: 'USER-CURRENT', // In real app, get from auth context
       state: formData.state,
-      selected_handle: handleRecord.handle,
+      selected_handle: policeTag || 'none',
       timestamp: new Date().toISOString(),
       message_preview: finalMessage,
       channel_type: 'X' as const,
       status: 'draft_redirected' as const
     };
 
-    logComplaintAction(logEntry);
+    logComplaintAction(logEntry as any);
 
-    // 5. Encode and Redirect
+    // 4. Encode and Redirect
     const encodedMessage = encodeURIComponent(finalMessage);
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodedMessage}`;
 
-    // Notify parent component of "submission" (even though it's a redirect)
-    onSubmit();
+    // Open in new tab
+    window.open(intentUrl, '_blank');
+  };
 
-    // Redirect
-    window.location.href = intentUrl;
+  const handleEmailReport = () => {
+    setError(null);
+
+    // 1. Validate Required Fields
+    if (!formData.vehicleNumber || !formData.violationType || !formData.date || !formData.time || !formData.state) {
+      setError("Please fill in all required fields (Vehicle, Violation, Date, Time, State).");
+      return;
+    }
+
+    if (!formData.consent) {
+      setError("You must confirm that the information is accurate before reporting.");
+      return;
+    }
+
+    // 2. Fetch Recipient Email
+    const emailContacts = getComplaintEmailContacts(formData.state);
+    
+    if (!emailContacts || !emailContacts.primary) {
+      setError("Official email contact not found for the selected state. Please try sharing on X or contact authorities directly.");
+      return;
+    }
+
+    // 3. Prepare Email Data
+    const locationText = [formData.address, formData.city, formData.state].filter(Boolean).join(', ');
+
+    const emailData: EmailComplaintData = {
+      violationType: formData.violationType,
+      vehicleNumber: formData.vehicleNumber,
+      location: locationText,
+      date: formData.date,
+      time: formData.time,
+      state: formData.state,
+      userEmail: formData.reporterEmail || 'user@example.com',
+      userName: formData.reporterName || 'Anonymous',
+      userMobile: formData.reporterMobile || 'Not provided',
+      recipientEmail: emailContacts.primary,
+      ccEmails: emailContacts.cc
+    };
+
+    // 4. Generate URL & Log Action
+    const mailtoUrl = generateFormalComplaintEmail(emailData);
+    
+    const logEntry = {
+      report_id: `RPT-EMAIL-${Date.now()}`,
+      user_id: 'USER-CURRENT',
+      state: formData.state,
+      selected_handle: emailContacts.primary,
+      timestamp: new Date().toISOString(),
+      message_preview: mailtoUrl,
+      channel_type: 'Email' as any,
+      status: 'draft_redirected' as const
+    };
+
+    logComplaintAction(logEntry as any);
+
+    // 5. Open Client
+    openEmailClient(mailtoUrl);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -385,16 +425,68 @@ EVIDENCE ID: ${formData.evidenceId}`;
                  </label>
                </div>
 
-               <button 
-                  onClick={handleXPost}
-                  className="w-full py-5 rounded-2xl bg-white text-black font-bold text-lg tracking-wide hover:bg-gray-200 transition-all flex items-center justify-center gap-3 shadow-lg"
-                >
-                  <Twitter className="w-5 h-5 fill-black" />
-                  <span>Post on X</span>
-                </button>
+                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 mb-4">
+                  <p className="text-orange-200 text-xs leading-relaxed">
+                    <span className="font-bold">Important Notice:</span> For security and browser limitations, evidence images or videos must be attached manually before publishing to X or sending the email. Please download the evidence before proceeding.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 w-full">
+                  <button 
+                    onClick={() => {
+                      let downloaded = false;
+                      if (data?.violation_frame) {
+                        const link = document.createElement('a');
+                        link.href = `data:image/jpeg;base64,${data.violation_frame}`;
+                        link.download = `violation_${formData.vehicleNumber}.jpg`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        downloaded = true;
+                      }
+                      if (data?.plate_frame) {
+                        setTimeout(() => {
+                          const link = document.createElement('a');
+                          link.href = `data:image/jpeg;base64,${data.plate_frame}`;
+                          link.download = `plate_${formData.vehicleNumber}.jpg`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }, 500); // 500ms delay to prevent browser blocking multiple downloads
+                        downloaded = true;
+                      }
+                      
+                      if (!downloaded) {
+                        setError("No evidence image available to download.");
+                      }
+                    }}
+                    className="w-full py-4 rounded-2xl bg-white/10 text-white font-bold text-sm tracking-wide hover:bg-white/20 transition-all flex items-center justify-center gap-2 shadow-lg border border-white/10"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Evidence</span>
+                  </button>
+
+                  <div className="flex gap-3 w-full">
+                    <button 
+                      onClick={handleEmailReport}
+                      className="flex-1 py-4 rounded-2xl bg-blue-500/20 text-blue-200 border border-blue-500/30 font-bold text-sm tracking-wide hover:bg-blue-500/30 transition-all flex items-center justify-center gap-2 shadow-lg"
+                    >
+                      <Mail className="w-4 h-4" />
+                      <span>Report via Email</span>
+                    </button>
+
+                    <button 
+                      onClick={handleXPost}
+                      className="flex-1 py-4 rounded-2xl bg-white text-black font-bold text-sm tracking-wide hover:bg-gray-200 transition-all flex items-center justify-center gap-2 shadow-lg"
+                    >
+                      <Twitter className="w-4 h-4 fill-black" />
+                      <span>Share on X</span>
+                    </button>
+                  </div>
+                </div>
                 
-                <p className="text-center text-white/40 text-[10px] px-4 leading-relaxed">
-                  You will be redirected to X to publish this report. Busted does not post automatically without your confirmation.
+                <p className="text-center text-white/40 text-[10px] px-4 leading-relaxed mt-3">
+                  You will be redirected to X or your email client to publish this report. Busted does not post automatically without your confirmation.
                 </p>
 
                 {/* Conditional Options */}

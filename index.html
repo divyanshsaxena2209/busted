@@ -24,11 +24,26 @@
             animation: {
               'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'shimmer': 'shimmer 3s linear infinite',
+              'siren-glow': 'sirenGlow 3.5s ease-in-out infinite',
             },
             keyframes: {
               shimmer: {
                 '0%': { backgroundPosition: '200% 0' },
                 '100%': { backgroundPosition: '-200% 0' }
+              },
+              sirenGlow: {
+                '0%, 100%': { 
+                  opacity: '0.4', 
+                  transform: 'scale(1)',
+                  boxShadow: '0 0 5px 2px rgba(255, 0, 0, 0.3)',
+                  backgroundColor: 'rgba(220, 38, 38, 0.6)'
+                },
+                '50%': { 
+                  opacity: '1', 
+                  transform: 'scale(1.4)',
+                  boxShadow: '0 0 25px 12px rgba(255, 0, 0, 1), 0 0 50px 20px rgba(255, 0, 0, 0.8), 0 0 80px 30px rgba(255, 0, 0, 0.5)',
+                  backgroundColor: 'rgba(255, 50, 50, 1)'
+                }
               }
             }
           }

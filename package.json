@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "frontend": "vite",
-    "backend": "tsx server.ts",
-    "ai": "cd ai_service && uvicorn main:app --reload --port 9000",
+    "backend": "nodemon --ext ts,js,json --exec tsx server.ts",
+    "ai": "cd ai_service && .\\ai-env\\Scripts\\python start.py",
     "start-all": "concurrently \"npm run backend\" \"npm run ai\"",
     "build": "vite build",
     "preview": "vite preview"
@@ -17,10 +17,12 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "framer-motion": "^12.34.0",
+    "http-proxy-middleware": "^4.0.0",
     "india-pincode-lookup": "^1.0.3",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "resend": "^6.12.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -28,6 +30,7 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
+    "nodemon": "^3.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

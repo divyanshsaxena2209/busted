@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 // ✅ IMPORTANT: Use correct extensions for runtime
 import { reportRoutes } from './backend/routes/reports.ts';
@@ -22,6 +23,20 @@ async function startServer() {
   // ─────────────────────────────────────────────
   app.use(cors());
   app.use(express.json());
+
+  // ─────────────────────────────────────────────
+  // AI Backend Proxy
+  // ─────────────────────────────────────────────
+  app.use(
+    '/api/ai',
+    createProxyMiddleware({
+      target: 'http://[::1]:8005',
+      changeOrigin: true,
+      pathRewrite: {
+        '^/api/ai': '', // remove base path
+      },
+    })
+  );
 
   // ─────────────────────────────────────────────
   // API Routes (ORDER MATTERS ⚠️)
